@@ -170,20 +170,20 @@ async def play(client, message):
 async def skip(client, message):
     chat_id = message.chat.id
     if chat_id in queue and len(queue[chat_id]) > 0:
-        await pytgcalls.leave_call(chat_id)
+        await pytgcalls.leave_group_call(chat_id)
         await process_queue(chat_id)
         await message.reply_text("Skipped to the next song in the queue.")
     else:
-        await pytgcalls.leave_call(chat_id)
+        await pytgcalls.leave_group_call(chat_id)
         await message.reply_text("No queue found. Leaving voice chat.")
 
 @userbot.on_message(filters.command("end"))
 async def end(client, message):
     chat_id = message.chat.id
-    await pytgcalls.leave_call(chat_id)
+    await pytgcalls.leave_group_call(chat_id)
     await message.reply_text("Music ended!")
 
 @userbot.on_callback_query(filters.regex("close"))
 async def close_button(client, callback_query):
     await callback_query.message.delete()
-    await callback_query.answer("Closed.", show_alert=False)
+    await callback_query.answer("Closed.", show_alert=True)
