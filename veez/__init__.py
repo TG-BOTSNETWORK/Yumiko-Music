@@ -2,8 +2,7 @@
 from pyrogram import Client
 from pyrogram import idle
 
-#py-tgcalls imports 
-from pytgcalls.types import GroupCallConfig 
+#py-tgcalls imports  
 from pytgcalls import PyTgCalls
 from ntgcalls import InputMode
 #manual imports 
@@ -26,6 +25,3 @@ veez_user = Client(
           in_memory=True, 
 ) 
 call_py = PyTgCalls(veez_user)
-config = GroupCallConfig(auto_start=False)
-
-       
