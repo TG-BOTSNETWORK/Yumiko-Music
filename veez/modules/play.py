@@ -10,7 +10,7 @@ from typing import Dict
 from asyncio import Queue
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from veez import call_py as pytgcalls, veez as userbot
+from veez import call_py as pytgcalls, veez as userbot, veez_config
 
 
 queue: Dict[int, Queue] = {}
@@ -98,6 +98,7 @@ async def process_queue(chat_id):
                 MediaStream(
                     path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
+                    config=call_config, 
                 ),
             )
             await userbot.send_message(chat_id, "**▶️ Playing from queue.**")
@@ -145,6 +146,7 @@ async def play_song(chat_id, user_id, query):
                 MediaStream(
                     path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
+                    config=call_config, 
                 ),
             )
         else:
