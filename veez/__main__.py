@@ -5,7 +5,7 @@ from veez import veez, veez_user
 from veez.logger import LOGGER
 from pyrogram import idle
 from pytgcalls import idle as pyidle
-from veez import call_py
+from veez import call_py 
 
 try:
     from config import API_ID, API_HASH, BOT_TOKEN, SESSION
@@ -16,25 +16,30 @@ except ImportError:
 from veez.modules import load_modules
 load_modules()
 
+async def check_call_py_status():
+    if call_py.is_running:
+        LOGGER.info("call_py has started successfully.")
+        print("call_py started successfully.")
+    else:
+        LOGGER.error("call_py failed to start.")
+        print("call_py failed to start.")
+
 async def main():
     LOGGER.info("Starting Veez Bot...")
     await veez.start()
     await veez_user.start()
-    LOGGER.info("Pyrogram clients started successfully.")
-
+    
     try:
-        await call_py.run()
-        LOGGER.info("call_py started successfully!")
-        print("call_py started successfully.")  # Confirm on console.
+        await call_py.start()
+        await check_call_py_status()
     except Exception as e:
         LOGGER.error(f"Failed to start call_py: {e}")
-        print(f"Error starting call_py: {e}")  # Print error on console.
-        return
+        print(f"Error: {e}")
+        raise SystemExit("call_py failed to start.")
 
     LOGGER.info("Veez Bot has started successfully!")
     print("Bot started successfully.")
-
-    await idle()  # Keep the bot running.
+    await pyidle()
     await veez.stop()
     await veez_user.stop()
     LOGGER.info("Veez Bot has stopped.")
@@ -49,5 +54,5 @@ if __name__ == "__main__":
         LOGGER.error("System exit encountered.")
     except Exception as e:
         LOGGER.error(f"An unexpected error occurred: {e}")
-        print(f"Unexpected error: {e}")
-        SystemExit(1)
+        import sys
+        sys.exit(1)
