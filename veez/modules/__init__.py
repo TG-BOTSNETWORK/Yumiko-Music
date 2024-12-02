@@ -1,7 +1,6 @@
-
 import os
 import importlib
-from veez import LOGGER
+from veez.logger import LOGGER
 
 MODULES_DIR = os.path.join(os.path.dirname(__file__), "modules")
 
