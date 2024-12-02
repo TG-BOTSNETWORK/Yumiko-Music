@@ -10,7 +10,7 @@ from veez.logger import LOGGER
 #pyrogram imports 
 from pyrogram import idle 
 #py-tgcalls imports 
-from pytgcalls import idle as veez_idle
+#from pytgcalls import idle as veez_idle
 
 try:
     from config import API_ID, API_HASH, BOT_TOKEN, SESSION
@@ -30,13 +30,13 @@ async def main():
     LOGGER.info("Starting Veez Bot...")
     await veez.start()
     await veez_user.start()
-    call_py.run()
+    #call_py.run()
     LOGGER.info("Veez Bot has started successfully!")
     print("Bot started successfully. Join the chat and interact.")
     await idle()
     await veez.stop()
     await veez_user.stop()
-    await call_py.stop()
+    #await call_py.stop()
     LOGGER.info("Veez Bot has stopped.")
 
 if __name__ == "__main__":
