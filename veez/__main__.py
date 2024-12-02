@@ -5,7 +5,7 @@ from builtins import KeyboardInterrupt
 #module imports
 from veez import veez 
 from veez import veez_user 
-from veez import call_py 
+#from veez import call_py 
 from veez.logger import LOGGER
 #pyrogram imports 
 from pyrogram import idle 
