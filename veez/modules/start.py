@@ -30,6 +30,9 @@ async def help(client, message):
     help_button = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("Back to Start", callback_data="back_to_start"),
+        ],
+        [
+            InlineKeyboardButton("Misc", callback_data="misc"), 
         ]
     ])
 
@@ -89,3 +92,19 @@ async def back_to_start(client, callback_query):
         reply_markup=start_button
     )
 
+@Client.on_callback_query(filters.regex("misc"))
+async def misc(client, callback_query):
+    user = callback_query.from_user
+    misc_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Back To start", callback_data="back_to_start")
+        ]
+    ])
+
+    await callback_query.message.edit_text(
+        f"Hello 👋 {user.mention}, here are some additional commands:\n\n"
+        "- /info: Get info about the bot\n"
+        "- /id: Get your user ID\n"
+        "- /runs: Get the Funny and inspirational runs!",
+        reply_markup=misc_button
+    )
