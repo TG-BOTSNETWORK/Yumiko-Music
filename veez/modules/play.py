@@ -10,7 +10,7 @@ from typing import Dict
 from asyncio import Queue
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from veez import call_py as pytgcalls, veez as userbot, veez_config
+from veez import call_py, veez, veez_config
 from pytgcalls.methods.calls import LeaveCall
 
 queue: Dict[int, Queue] = {}
@@ -93,7 +93,7 @@ async def process_queue(chat_id):
         raw_file = queue[chat_id].pop(0)
         is_playing[chat_id] = True
         try:
-            await pytgcalls.play(
+            await call_py.play(
                 chat_id,
                 MediaStream(
                     path=raw_file,
@@ -105,10 +105,10 @@ async def process_queue(chat_id):
         except Exception as e:
             await userbot.send_message(chat_id, f"Error: {e}")
             is_playing[chat_id] = False
-            await pytgcalls.leave_call(chat_id)
+            await call_py.leave_call(chat_id)
     else:
         is_playing[chat_id] = False
-        await pytgcalls.leave_call(chat_id)
+        await call_py.leave_call(chat_id)
         await userbot.send_message(chat_id, "**🔇 Queue is empty. Leaving voice chat.**")
 
 async def play_song(chat_id, user_id, query):
@@ -141,7 +141,7 @@ async def play_song(chat_id, user_id, query):
         if chat_id not in active_calls:
             active_calls[chat_id] = user_id
             is_playing[chat_id] = True
-            await pytgcalls.play(
+            await call_py.play(
                 chat_id,
                 MediaStream(
                     path=raw_file,
@@ -172,17 +172,17 @@ async def play(client, message):
 async def skip(client, message):
     chat_id = message.chat.id
     if chat_id in queue and len(queue[chat_id]) > 0:
-        await pytgcalls.leave_call(chat_id)
+        await call_py.leave_call(chat_id)
         await process_queue(chat_id)
         await message.reply_text("Skipped to the next song in the queue.")
     else:
-        await pytgcalls.leave_call(chat_id)
+        await call_py.leave_call(chat_id)
         await message.reply_text("No queue found. Leaving voice chat.")
 
 @userbot.on_message(filters.command("end"))
 async def end(client, message):
     chat_id = message.chat.id
-    await pytgcalls.leave_call(chat_id)
+    await call_py.leave_call(chat_id)
     await message.reply_text("Music ended!")
 
 @userbot.on_callback_query(filters.regex("close"))
