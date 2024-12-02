@@ -1,5 +1,5 @@
 git+https://github.com/TG-BOTSNETWORK/PyroBeta@master
-py-tgcalls==2.0.6
+py-tgcalls==2.1.0.dev2
 aiofiles
 aiohttp
 asyncio
