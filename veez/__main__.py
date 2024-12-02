@@ -17,7 +17,7 @@ from veez.modules import load_modules
 load_modules()
 
 async def check_call_py_status():
-    if call_py.is_running:
+    if call_py._is_running:
         LOGGER.info("call_py has started successfully.")
         print("call_py started successfully.")
     else:
