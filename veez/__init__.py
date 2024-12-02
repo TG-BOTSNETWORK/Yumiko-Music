@@ -3,8 +3,8 @@ from pyrogram import Client
 from pyrogram import idle
 
 #py-tgcalls imports  
-from pytgcalls import PyTgCalls
-from pytgcalls.types import GroupCallConfig
+#from pytgcalls import PyTgCalls
+#from pytgcalls.types import GroupCallConfig
 #manual imports 
 import asyncio 
 import os
@@ -25,5 +25,5 @@ veez_user = Client(
           session_string=str(SESSION), 
           in_memory=True, 
 ) 
-call_py = PyTgCalls(veez_user)
-veez_config = GroupCallConfig(auto_start=False)
+#call_py = PyTgCalls(veez_user)
+#veez_config = GroupCallConfig(auto_start=False)
