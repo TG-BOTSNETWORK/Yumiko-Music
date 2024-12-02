@@ -12,3 +12,5 @@ git+https://github.com/yt-dlp/yt-dlp@master
 validators
 rich
 TgCrypto
+ffmpeg-python
+ffmpeg
