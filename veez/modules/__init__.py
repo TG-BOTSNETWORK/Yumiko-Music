@@ -2,9 +2,13 @@ import os
 import importlib
 from veez.logger import LOGGER
 
-MODULES_DIR = os.path.join(os.path.dirname(__file__), "modules")
+MODULES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ""))
 
 def load_modules():
+    if not os.path.exists(MODULES_DIR):
+        LOGGER.error(f"Modules directory not found: {MODULES_DIR}")
+        raise FileNotFoundError(f"Modules directory not found: {MODULES_DIR}")
+
     LOGGER.info("Loading modules...")
     for filename in os.listdir(MODULES_DIR):
         if filename.endswith(".py") and filename != "__init__.py":
