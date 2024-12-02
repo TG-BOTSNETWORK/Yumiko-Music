@@ -10,7 +10,7 @@ from typing import Dict
 from asyncio import Queue
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from veez import call_py, veez, veez_config
+from veez import call_py, veez as userbot, veez_config
 from pytgcalls.methods.calls import LeaveCall
 
 queue: Dict[int, Queue] = {}
