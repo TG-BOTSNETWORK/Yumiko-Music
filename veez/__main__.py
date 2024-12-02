@@ -29,7 +29,7 @@ if not os.path.exists("cookies.txt"):
 
 async def main():
     LOGGER.info("Starting Veez Bot...")
-    await veez.start()
+    await veez.run()
     await veez_user.start()
     #call_py.run()
     LOGGER.info("Veez Bot has started successfully!")
