@@ -51,12 +51,12 @@ async def info(client: Client, message: Message):
 @Client.on_message(filters.command("id"))
 async def id(client: Client, message: Message):
     if message.chat.type == "private":
-        await message.reply_text(f"Your ID is: <code>{message.from_user.id}</code>", parse_mode="HTML")
+        await message.reply_text(f"Your ID is: <code>{message.from_user.id}</code>", parse_mode=ParseMode.HTML)
     else:
-        await message.reply_text(f"This Chat ID is: <code>{message.chat.id}</code>", parse_mode="HTML")
+        await message.reply_text(f"This Chat ID is: <code>{message.chat.id}</code>", parse_mode=ParseMode.HTML)
 
 
 @Client.on_message(filters.command("runs"))
 async def runs(client, message):
     random_runs = random.choice(DATA)
-    await message.reply(f"{random_item}")
+    await message.reply(f"{random_runs}")
