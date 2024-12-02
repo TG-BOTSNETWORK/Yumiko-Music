@@ -4,6 +4,8 @@ from sys import exit as SystemExit
 from veez import veez, veez_user
 from veez.logger import LOGGER
 from pyrogram import idle
+from pytgcalls import idle as pyidle 
+from veez import call_py 
 
 try:
     from config import API_ID, API_HASH, BOT_TOKEN, SESSION
@@ -26,8 +28,9 @@ async def main():
     LOGGER.info("Starting Veez Bot...")
     await veez.start()
     await veez_user.start()
+    await call_py.run() 
     LOGGER.info("Veez Bot has started successfully!")
-    print("Bot started successfully. Join the chat and interact.")
+    print("Bot started successfully.")
     await idle()  
     await veez.stop()
     await veez_user.stop()
