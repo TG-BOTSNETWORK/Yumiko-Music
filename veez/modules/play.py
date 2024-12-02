@@ -3,7 +3,6 @@ import asyncio
 import ffmpeg
 from os import path
 from pytgcalls.types import AudioQuality, MediaStream
-from ntgcalls import InputMode
 from yt_dlp import YoutubeDL
 from youtube_search import YoutubeSearch
 import validators
@@ -97,7 +96,6 @@ async def process_queue(chat_id):
             await pytgcalls.play(
                 chat_id,
                 MediaStream(
-                    input_mode=InputMode.File,
                     path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
                 ),
@@ -145,7 +143,6 @@ async def play_song(chat_id, user_id, query):
             await pytgcalls.play(
                 chat_id,
                 MediaStream(
-                    input_mode=InputMode.File,
                     path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
                 ),
@@ -173,17 +170,17 @@ async def play(client, message):
 async def skip(client, message):
     chat_id = message.chat.id
     if chat_id in queue and len(queue[chat_id]) > 0:
-        await pytgcalls.leave_group_call(chat_id)
+        await pytgcalls.leave_call(chat_id)
         await process_queue(chat_id)
         await message.reply_text("Skipped to the next song in the queue.")
     else:
-        await pytgcalls.leave_group_call(chat_id)
+        await pytgcalls.leave_call(chat_id)
         await message.reply_text("No queue found. Leaving voice chat.")
 
 @userbot.on_message(filters.command("end"))
 async def end(client, message):
     chat_id = message.chat.id
-    await pytgcalls.leave_group_call(chat_id)
+    await pytgcalls.leave_call(chat_id)
     await message.reply_text("Music ended!")
 
 @userbot.on_callback_query(filters.regex("close"))
