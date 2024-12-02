@@ -1,55 +1,35 @@
-import base64
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_USERNAME  
-from veez import veez 
-
-def encrypt(text: str) -> str:
-    """Encrypts text into a base64 string."""
-    encoded_bytes = base64.urlsafe_b64encode(text.encode('utf-8'))
-    return encoded_bytes.decode('utf-8')
-
-def decrypt(text: str) -> str:
-    """Decrypts base64 string into original text."""
-    decoded_bytes = base64.urlsafe_b64decode(text.encode('utf-8'))
-    return decoded_bytes.decode('utf-8')
+from veez import veez  
 
 @Client.on_message(filters.command('start'))
 async def start(client, message):
     user = message.from_user
-    start_data = message.text.split()  
-    if len(start_data) > 1 and start_data[1] == 'help':
-        encrypted_help_link = encrypt("help")
-        start_button = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Click to see guide", url=f"https://t.me/{BOT_USERNAME}?start={encrypted_help_link}"),
-            ],
-            [
-                InlineKeyboardButton("Join group", url="https://t.me/your_group_link"),  # Replace with your group link
-                InlineKeyboardButton("Join Channel", url="https://t.me/your_channel_link")  # Replace with your channel link
-            ],
-            [
-                InlineKeyboardButton("Add to your group", url=f"t.me/{BOT_USERNAME}?startgroup={encrypted_help_link}")
-            ]
-        ])
-        await message.reply_text(
-            f"Hello 👋 {user.mention},\nI'm your music bot ready to play music without lag! Click below to see the guide or use /help.",
-            reply_markup=start_button
-        )
-    else:
-        await message.reply_text(
-            f"Hello 👋 {user.mention}, I'm the **Veez Music Bot**.\nUse /help to see available commands.",
-        )
+    start_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Click to see guide", callback_data="show_guide"),
+        ],
+        [
+            InlineKeyboardButton("Join group", url="https://t.me/VeezGroup"),  
+            InlineKeyboardButton("Join Channel", url="https://t.me/VeezNews")  
+        ],
+        [
+            InlineKeyboardButton("Add to your group", url=f"t.me/{BOT_USERNAME}?startgroup=help")
+        ]
+    ])
+
+    await message.reply_text(
+        f"Hello 👋 {user.mention},\nI'm your music bot ready to play music without lag! Click below to see the guide or use /help.",
+        reply_markup=start_button
+    )
 
 @Client.on_message(filters.command('help'))
 async def help(client, message):
     user = message.from_user
     help_button = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("Help", url=f"https://t.me/{BOT_USERNAME}?start=help"),
-        ],
-        [
-            InlineKeyboardButton("Add to group", url=f"t.me/{BOT_USERNAME}?startgroup=help"),
+            InlineKeyboardButton("Back to Start", callback_data="back_to_start"),
         ]
     ])
 
@@ -79,3 +59,33 @@ async def help(client, message):
         "- /removesudo: Remove a user from sudo\n",
         reply_markup=help_button
     )
+
+@Client.on_callback_query(filters.regex("show_guide"))
+async def show_guide(client, callback_query):
+    user = callback_query.from_user
+    await callback_query.message.edit_text(
+        f"Hello 👋 {user.mention}, you can find all the details below:\n\n"
+        "Use /help to see all commands."
+    )
+
+@Client.on_callback_query(filters.regex("back_to_start"))
+async def back_to_start(client, callback_query):
+    user = callback_query.from_user
+    start_button = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Click to see guide", callback_data="show_guide"),
+        ],
+        [
+            InlineKeyboardButton("Join group", url="https://t.me/VeezGroup"),  
+            InlineKeyboardButton("Join Channel", url="https://t.me/VeezNews")  
+        ],
+        [
+            InlineKeyboardButton("Add to your group", url=f"t.me/{BOT_USERNAME}?startgroup=True")
+        ]
+    ])
+    
+    await callback_query.message.edit_text(
+        f"Hello 👋 {user.mention},\nI'm your music bot ready to play music without lag! Click below to see the guide or use /help.",
+        reply_markup=start_button
+    )
+
