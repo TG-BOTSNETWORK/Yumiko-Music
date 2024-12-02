@@ -2,6 +2,7 @@ import base64
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_USERNAME  
+from veez import veez 
 
 def encrypt(text: str) -> str:
     """Encrypts text into a base64 string."""
@@ -13,7 +14,7 @@ def decrypt(text: str) -> str:
     decoded_bytes = base64.urlsafe_b64decode(text.encode('utf-8'))
     return decoded_bytes.decode('utf-8')
 
-@app.on_message(filters.command('start'))
+@veez.on_message(filters.command('start'))
 async def start(client, message):
     user = message.from_user
     start_data = message.text.split()  
