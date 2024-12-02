@@ -13,14 +13,6 @@ except ImportError:
     LOGGER.error("config.py not found or missing required variables!")
     raise SystemExit("Please ensure `config.py` exists and contains API_ID, API_HASH, BOT_TOKEN, and SESSION.")
 
-for directory in ["downloads", "cache"]:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-        
-if not os.path.exists("cookies.txt"):
-    with open("cookies.txt", "w") as f:
-        f.write("")
-
 from veez.modules import load_modules
 load_modules() 
 
