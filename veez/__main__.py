@@ -1,17 +1,12 @@
 import os
 import asyncio
 from sys import exit as SystemExit
-from builtins import KeyboardInterrupt
 
-#module imports
-from veez import veez 
-from veez import veez_user 
-#from veez import call_py 
+# Module imports
+from veez import veez, veez_user
 from veez.logger import LOGGER
-#pyrogram imports 
-from pyrogram import idle 
-#py-tgcalls imports 
-#from pytgcalls import idle as veez_idle
+# Pyrogram imports
+from pyrogram import idle
 
 try:
     from config import API_ID, API_HASH, BOT_TOKEN, SESSION
@@ -25,24 +20,24 @@ for directory in ["downloads", "cache"]:
 
 if not os.path.exists("cookies.txt"):
     with open("cookies.txt", "w") as f:
-        f.write("")  
+        f.write("")
 
 async def main():
     LOGGER.info("Starting Veez Bot...")
-    await veez.run()
+    await veez.start()
     await veez_user.start()
-    #call_py.run()
     LOGGER.info("Veez Bot has started successfully!")
     print("Bot started successfully. Join the chat and interact.")
-    idle()
+    await idle()  # Keep the bot running
     await veez.stop()
     await veez_user.stop()
-    #await call_py.stop()
     LOGGER.info("Veez Bot has stopped.")
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
         LOGGER.error("Bot stopped manually.")
-        pass
+    except SystemExit:
+        LOGGER.error("System exit encountered.")
