@@ -5,7 +5,7 @@ from pyrogram import idle
 #py-tgcalls imports 
 from pytgcalls.types import GroupCallConfig 
 from pytgcalls import PyTgCalls
-
+from ntgcalls import InputMode
 #manual imports 
 import asyncio 
 import os
