@@ -14,7 +14,7 @@ def decrypt(text: str) -> str:
     decoded_bytes = base64.urlsafe_b64decode(text.encode('utf-8'))
     return decoded_bytes.decode('utf-8')
 
-@veez.on_message(filters.command('start'))
+@Client.on_message(filters.command('start'))
 async def start(client, message):
     user = message.from_user
     start_data = message.text.split()  
@@ -41,7 +41,7 @@ async def start(client, message):
             f"Hello 👋 {user.mention}, I'm the **Veez Music Bot**.\nUse /help to see available commands.",
         )
 
-@veez.on_message(filters.command('help'))
+@Client.on_message(filters.command('help'))
 async def help(client, message):
     user = message.from_user
     help_button = InlineKeyboardMarkup([
