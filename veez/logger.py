@@ -18,4 +18,4 @@ logging.basicConfig(
 LOGGER = logging.getLogger("VeezBot")
 
 logging.getLogger("pyrogram").setLevel(logging.WARNING)  
-logging.getLogger("pytgcalls").setLevel(logging.ERROR) 
+logging.getLogger("py-tgcalls").setLevel(logging.ERROR) 
