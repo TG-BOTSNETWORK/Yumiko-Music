@@ -1,87 +1,72 @@
-
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, User, Chat
 from datetime import datetime
+import os
+from config import BOT_USERNAME
 
-@Client.on_message(filters.command('info'))
-async def info(client, message):
-    user = message.from_user
-    args = message.text.split()
+def get_user_info(user: User):
+    user_info = (
+        f"<b>Mention:</b> {user.mention}\n"
+        f"<b>Username:</b> @{user.username if user.username else 'N/A'}\n"
+        f"<b>ID:</b> <code>{user.id}</code>\n"
+        f"<b>Profile Link:</b> <a href='tg://user?id={user.id}'>Click Here</a>\n"
+        f"<b>First Name:</b> {user.first_name if user.first_name else 'N/A'}\n"
+        f"<b>Last Seen:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    )
+    return user_info
 
-    if len(args) == 1:  
-        profile_pic = await client.get_user_profile_photos(user.id)
-        profile_pic_url = profile_pic.photos[0].file_id if profile_pic.photos else None
-        
-        user_info = (
-            f"**User Information for {user.mention}:**\n"
-            f"**First Name:** {user.first_name}\n"
-            f"**Username:** @{user.username if user.username else 'N/A'}\n"
-            f"**User ID:** {user.id}\n"
-            f"**Date of Check:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"**Permalink:** t.me/{user.username if user.username else 'N/A'}\n"
-            f"**Profile Picture:** {profile_pic_url if profile_pic_url else 'No profile picture available'}\n"
-        )
-        
-        close_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Close", callback_data="close_info")]
-        ])
-        
-        await message.reply_text(
-            user_info,
-            reply_markup=close_button
-        )
-    
-    elif len(args) == 2:  
-        target_id = int(args[1])
-        
-        try:
-            # If it's a user ID
-            user_info = await client.get_users(target_id)
-            profile_pic = await client.get_user_profile_photos(target_id)
-            profile_pic_url = profile_pic.photos[0].file_id if profile_pic.photos else None
-            
-            user_info_message = (
-                f"**User Information for {user_info.mention}:**\n"
-                f"**First Name:** {user_info.first_name}\n"
-                f"**Username:** @{user_info.username if user_info.username else 'N/A'}\n"
-                f"**User ID:** {user_info.id}\n"
-                f"**Date of Check:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"**Permalink:** t.me/{user_info.username if user_info.username else 'N/A'}\n"
-                f"**Profile Picture:** {profile_pic_url if profile_pic_url else 'No profile picture available'}\n"
-                f"**First Name Changed:** {user_info.first_name_changes}\n"
-                f"**Username Changed:** {user_info.username_changes}"
-            )
-            
-            await message.reply_text(
-                user_info_message,
-                reply_markup=close_button
-            )
-        
-        except Exception as e:
-            try:
-                # If it's a group ID
-                group_info = await client.get_chat(target_id)
-                group_profile_pic = await client.get_chat_photo(target_id)
-                group_profile_pic_url = group_profile_pic.file_id if group_profile_pic else None
-                
-                group_info_message = (
-                    f"**Group Information:**\n"
-                    f"**Group Title:** {group_info.title}\n"
-                    f"**Group ID:** {group_info.id}\n"
-                    f"**Permalink:** {group_info.username if group_info.username else 'N/A'}\n"
-                    f"**Group Profile Picture:** {group_profile_pic_url if group_profile_pic_url else 'No profile picture available'}\n"
-                )
-                
-                await message.reply_text(
-                    group_info_message,
-                    reply_markup=close_button
-                )
-            except Exception as e:
-                await message.reply_text("Could not find information for the provided ID.")
-    else:
-        await message.reply_text("Usage: /info [user_id or group_id]")
+def get_group_info(group: Chat):
+    group_info = (
+        f"<b>Group Title:</b> {group.title}\n"
+        f"<b>Group ID:</b> <code>{group.id}</code>\n"
+        f"<b>Group Permalink:</b> <a href='https://t.me/{group.username}'>Click Here</a>\n"
+    )
+    return group_info
+
+@Client.on_message(filters.command("info"))
+async def info_command(client: Client, message: Message):
+    try:
+        wait_message = await message.reply_text("Please wait, I am searching...")
+
+        if len(message.text.split()) > 1:
+            entity_id = int(message.text.split()[1])
+            # Check if the entity is a user or group by fetching its type
+            if entity_id < 0:  # It's a group ID
+                group = await client.get_chat(entity_id)
+                group_info = get_group_info(group) 
+                await wait_message.edit_text("found... Uploading group information.")
+                profile_pic = await client.download_media(group.photo.big_file_id) if group.photo else None
+                reply_message = await message.reply_photo(photo=profile_pic, caption=group_info, parse_mode="HTML", reply_markup=close_button())
+                if profile_pic:
+                    os.remove(profile_pic)
+            else:  # It's a user ID
+                user = await client.get_users(entity_id)
+                user_info = get_user_info(user)
+                await wait_message.edit_text("User found... Uploading user information.")
+                profile_pic = await client.download_media(user.photo.big_file_id) if user.photo else None
+                reply_message = await message.reply_photo(photo=profile_pic, caption=user_info, parse_mode="HTML", reply_markup=close_button())
+                if profile_pic:
+                    os.remove(profile_pic)
+        else:
+            user_info = get_user_info(message.from_user)
+            await wait_message.edit_text("User found... Uploading your information.")
+            profile_pic = await client.download_media(message.from_user.photo.big_file_id) if message.from_user.photo else None
+            reply_message = await message.reply_photo(photo=profile_pic, caption=user_info, parse_mode="HTML", reply_markup=close_button())
+            if profile_pic:
+                os.remove(profile_pic)
+        await wait_message.delete()
+
+    except ValueError:
+        await message.reply_text("Invalid user or group ID. Please provide a valid numerical ID.")
+    except Exception as e:
+        print(e)
+        await message.reply_text(f"Something went wrong: {e}")
+
+def close_button():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Close", callback_data="close_info")]
+    ])
 
 @Client.on_callback_query(filters.regex("close_info"))
-async def close_info(client, callback_query):
-    await callback_query.message.delete()  
-
+async def close_info(client: Client, callback_query):
+    await callback_query.message.delete()
