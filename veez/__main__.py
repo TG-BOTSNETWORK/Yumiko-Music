@@ -34,7 +34,7 @@ async def main():
     #call_py.run()
     LOGGER.info("Veez Bot has started successfully!")
     print("Bot started successfully. Join the chat and interact.")
-    await idle()
+    idle()
     await veez.stop()
     await veez_user.stop()
     #await call_py.stop()
