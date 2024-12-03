@@ -96,7 +96,7 @@ async def process_queue(chat_id):
             await call_py.play(
                 chat_id,
                 MediaStream(
-                    path=raw_file,
+                    media_path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
                     config=call_config, 
                 ),
@@ -144,7 +144,7 @@ async def play_song(chat_id, user_id, query):
             await call_py.play(
                 chat_id,
                 MediaStream(
-                    path=raw_file,
+                    media_path=raw_file,
                     audio_parameters=AudioQuality.STUDIO,
                     config=call_config, 
                 ),
