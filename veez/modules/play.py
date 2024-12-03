@@ -12,11 +12,15 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from veez import call_py, veez as userbot, veez_config
 from pytgcalls.methods.calls import LeaveCall
+from ntgcalls import ConnectionNotFound, TelegramServerError  # Add these imports
 
 queue: Dict[int, Queue] = {}
 active_calls = {}
 is_playing = {}
 
+DURATION_LIMIT = 60
+
+# Transcode Function
 def transcode(filename):
     ffmpeg.input(filename).output(
         "input.raw", format='s16le', acodec='pcm_s16le', ac=2, ar='48k'
@@ -34,13 +38,12 @@ def convert_seconds(seconds):
 def time_to_seconds(time):
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(str(time).split(':'))))
 
+# Exceptions
 class DurationLimitError(Exception):
     pass
 
 class FFmpegReturnCodeError(Exception):
     pass
-
-DURATION_LIMIT = 60
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -52,6 +55,7 @@ ydl_opts = {
 
 ydl = YoutubeDL(ydl_opts)
 
+# Download Function
 def download(url: str) -> str:
     info = ydl.extract_info(url, False)
     duration = round(info["duration"] / 60)
@@ -93,14 +97,12 @@ async def process_queue(chat_id):
         raw_file = queue[chat_id].pop(0)
         is_playing[chat_id] = True
         try:
-            await call_py.play(
-                chat_id,
-                MediaStream(
-                    media_path=raw_file,
-                    audio_parameters=AudioQuality.STUDIO,
-                    config=call_config, 
-                ),
+            stream_media = MediaStream(
+                media_path=raw_file,
+                video_flags=MediaStream.Flags.IGNORE,
+                audio_parameters=AudioQuality.STUDIO,
             )
+            await call_py.play(chat_id, stream_media)
             await userbot.send_message(chat_id, "**▶️ Playing from queue.**")
         except Exception as e:
             await userbot.send_message(chat_id, f"Error: {e}")
@@ -111,6 +113,7 @@ async def process_queue(chat_id):
         await call_py.leave_call(chat_id)
         await userbot.send_message(chat_id, "**🔇 Queue is empty. Leaving voice chat.**")
 
+# Play Song
 async def play_song(chat_id, user_id, query):
     try:
         if not validators.url(query):
@@ -141,22 +144,23 @@ async def play_song(chat_id, user_id, query):
         if chat_id not in active_calls:
             active_calls[chat_id] = user_id
             is_playing[chat_id] = True
-            await call_py.play(
-                chat_id,
-                MediaStream(
-                    media_path=raw_file,
-                    audio_parameters=AudioQuality.STUDIO,
-                    config=call_config, 
-                ),
+            stream_media = MediaStream(
+                media_path=raw_file,
+                video_flags=MediaStream.Flags.IGNORE,
+                audio_parameters=AudioQuality.STUDIO,
             )
+            await call_py.play(chat_id, stream_media)
         else:
             queue.setdefault(chat_id, []).append(raw_file)
             await userbot.send_message(chat_id, "**Added to queue. Use /skip to play next.**")
     except DurationLimitError as de:
         await userbot.send_message(chat_id, str(de))
+    except (ConnectionNotFound, TelegramServerError) as e:  
+        await userbot.send_message(chat_id, f"Error: {e}")
     except Exception as e:
         await userbot.send_message(chat_id, f"Error: {e}")
 
+# Commands
 @userbot.on_message(filters.command("play"))
 async def play(client, message):
     chat_id = message.chat.id
