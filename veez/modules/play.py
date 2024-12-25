@@ -1,5 +1,7 @@
 import os
+import asyncio
 import yt_dlp
+from os import path
 from pytgcalls import PyTgCalls, filters as pytgfl
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -7,6 +9,7 @@ from pytgcalls.types import MediaStream, AudioQuality
 from pyrogram.errors import FloodWait
 from pyrogram.types import Message
 from veez import veez as app, call_py as call
+
 # Initialize the Pyrogram Client and PyTgCalls
 # A dictionary to hold active media chat info
 ACTIVE_AUDIO_CHATS = []
@@ -78,6 +81,29 @@ def download_song(url):
         filename = ydl.prepare_filename(info_dict)
     return filename
 
+# Function to transcode audio to raw format
+async def transcode(filename):
+    output_path = path.join("raw_files", path.splitext(path.basename(filename))[0] + ".raw")
+    os.makedirs("raw_files", exist_ok=True)
+
+    if path.isfile(output_path):
+        return output_path
+
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            f"ffmpeg -y -i {filename} -f s16le -ac 1 -ar 48000 -acodec pcm_s16le {output_path}",
+            asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            raise Exception(f"FFmpeg error: {stderr.decode('utf-8')}")
+    except Exception as e:
+        raise Exception(f"Error during FFmpeg conversion: {e}")
+
+    return output_path
+
 # Command to handle the play functionality
 @app.on_message(filters.command("play"))
 async def play_command(client: Client, message: Message):
@@ -104,10 +130,17 @@ async def play_command(client: Client, message: Message):
         await message.reply(f"Failed to download the song: {str(e)}")
         return
 
+    # Transcode the file to raw format
+    try:
+        raw_file = await transcode(downloaded_file)
+    except Exception as e:
+        await message.reply(f"Failed to transcode the song: {str(e)}")
+        return
+
     # Get media details
     title = "Downloaded Song"  # You can get more detailed info from yt-dlp output
     duration = "Unknown"
-    stream_file = downloaded_file
+    stream_file = raw_file
     stream_type = "Audio"  # Assuming audio for now
     thumbnail = None  # You can extract the thumbnail using yt-dlp if needed
 
@@ -122,3 +155,4 @@ async def play_command(client: Client, message: Message):
         await message.reply(f"Failed to join the group call: {str(e)}")
 
     await message.reply(f"Now playing: {title}")
+
