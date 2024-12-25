@@ -14,7 +14,37 @@ from veez import call_py, veez as userbot, veez_config
 from pytgcalls.methods.calls import LeaveCall
 from ntgcalls import ConnectionNotFound, TelegramServerError
 from pyrogram.errors import UserAlreadyParticipant
+from typing import List
+from pyrogram.types import Chat, User
+from typing import List, Dict, Union
 
+admins: Dict[int, List[int]] = {}
+
+def set(chat_id: int, admins_: List[int]):
+    admins[chat_id] = admins_
+
+def get(chat_id: int) -> Union[List[int], bool]:
+    if chat_id in admins:
+        return admins[chat_id]
+    return False
+
+async def get_administrators(chat: Chat) -> List[User]:
+    try:
+        cached_admins = get(chat.id)
+        if cached_admins:
+            return [await chat.get_member(user_id) for user_id in cached_admins]
+        admin_members = chat.get_members(filter="administrators")
+        admin_ids = []
+        async for admin in admin_members:
+            if admin.can_manage_voice_chats:
+                admin_ids.append(admin.user.id)
+        set(chat.id, admin_ids)
+        return [await chat.get_member(user_id) for user_id in admin_ids]
+
+    except Exception as e:
+        print(f"An error occurred while getting administrators: {e}")
+        return []
+        
 queue: Dict[int, Queue] = {}
 active_calls = {}
 is_playing = {}
@@ -138,14 +168,6 @@ async def play_song(chat_id, user_id, query):
         await userbot.send_message(chat_id, f"Error: {e}")
     except Exception as e:
         await userbot.send_message(chat_id, f"Error: {e}")
-
-# Get Administrators and Ensure Bot is Admin
-async def get_administrators(chat):
-    return [
-        admin.user.id
-        for admin in await userbot.get_chat_members(chat.id, filter="administrators")
-    ]
-
 
 @userbot.on_message(filters.command("play"))
 async def play(client, message):
