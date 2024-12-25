@@ -14,37 +14,24 @@ from veez import call_py, veez as userbot, veez_config
 from pytgcalls.methods.calls import LeaveCall
 from ntgcalls import ConnectionNotFound, TelegramServerError
 from pyrogram.errors import UserAlreadyParticipant
-from typing import List
-from pyrogram.types import Chat, User
 from typing import List, Dict, Union
-
-admins: Dict[int, List[int]] = {}
-
-def set(chat_id: int, admins_: List[int]):
-    admins[chat_id] = admins_
-
-def get(chat_id: int) -> Union[List[int], bool]:
-    if chat_id in admins:
-        return admins[chat_id]
-    return False
+from pyrogram.types import Chat, User, ChatMember
+from pyrogram.errors import BadRequest
 
 async def get_administrators(chat: Chat) -> List[User]:
     try:
-        cached_admins = get(chat.id)
-        if cached_admins:
-            return [await chat.get_member(user_id) for user_id in cached_admins]
+        # Get the list of administrators
         admin_members = chat.get_members(filter="administrators")
         admin_ids = []
         async for admin in admin_members:
             if admin.can_manage_voice_chats:
                 admin_ids.append(admin.user.id)
-        set(chat.id, admin_ids)
-        return [await chat.get_member(user_id) for user_id in admin_ids]
 
+        return admin_ids
     except Exception as e:
         print(f"An error occurred while getting administrators: {e}")
         return []
-        
+      
 queue: Dict[int, Queue] = {}
 active_calls = {}
 is_playing = {}
@@ -121,7 +108,6 @@ async def convert(file_path: str) -> str:
     return out
 
 
-# Play Song
 async def play_song(chat_id, user_id, query):
     try:
         if not validators.url(query):
@@ -175,20 +161,28 @@ async def play(client, message):
     user_id = message.from_user.id
     query = " ".join(message.command[1:])
 
-    administrators = await get_administrators(message.chat)
-    bot = await userbot.get_me()
-    if bot.id not in administrators:
-        await message.reply_text(
-            "**Promote me as an admin with all permissions to play music in voice chat.**"
-        )
-        return
-
-    if chat_id in active_calls:
-        await play_song(chat_id, user_id, query)
-    else:
-        active_calls[chat_id] = user_id
-        await play_song(chat_id, user_id, query)
-
+    try:
+        bot_member: ChatMember = await userbot.get_chat_member(chat_id, "me")
+        if not bot_member.can_manage_voice_chats:
+            await message.reply_text(
+                "**Promote me as an admin with voice chat permissions to play music!**"
+            )
+            return
+        if not bot_member.can_manage_voice_chats:
+            await message.reply_text(
+                "**I need voice chat management permissions to play music in voice chat. Please grant this permission.**"
+            )
+            return
+        if chat_id in active_calls:
+            await play_song(chat_id, user_id, query)
+        else:
+            active_calls[chat_id] = user_id
+            await play_song(chat_id, user_id, query)
+    except BadRequest as e:
+        await message.reply_text(f"An error occurred: {e}")
+    except Exception as e:
+        await message.reply_text(f"An unexpected error occurred: {e}")
+        
 
 @userbot.on_message(filters.command("skip"))
 async def skip(client, message):
