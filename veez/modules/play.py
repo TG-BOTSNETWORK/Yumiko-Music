@@ -12,38 +12,14 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from veez import call_py, veez as userbot, veez_config
 from pytgcalls.methods.calls import LeaveCall
-from ntgcalls import ConnectionNotFound, TelegramServerError  # Add these imports
+from ntgcalls import ConnectionNotFound, TelegramServerError
+from pyrogram.errors import UserAlreadyParticipant
 
 queue: Dict[int, Queue] = {}
 active_calls = {}
 is_playing = {}
 
 DURATION_LIMIT = 60
-
-# Transcode Function
-def transcode(filename):
-    ffmpeg.input(filename).output(
-        "input.raw", format='s16le', acodec='pcm_s16le', ac=2, ar='48k'
-    ).overwrite_output().run()
-    os.remove(filename)
-
-# Convert seconds to mm:ss
-def convert_seconds(seconds):
-    seconds %= 3600
-    minutes = seconds // 60
-    seconds %= 60
-    return "%02d:%02d" % (minutes, seconds)
-
-# Convert hh:mm:ss to seconds
-def time_to_seconds(time):
-    return sum(int(x) * 60 ** i for i, x in enumerate(reversed(str(time).split(':'))))
-
-# Exceptions
-class DurationLimitError(Exception):
-    pass
-
-class FFmpegReturnCodeError(Exception):
-    pass
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -55,10 +31,31 @@ ydl_opts = {
 
 ydl = YoutubeDL(ydl_opts)
 
-# Download Function
+def transcode(filename):
+    ffmpeg.input(filename).output(
+        "input.raw", format="s16le", acodec="pcm_s16le", ac=2, ar="48k"
+    ).overwrite_output().run()
+    os.remove(filename)
+
+def convert_seconds(seconds):
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+    return "%02d:%02d" % (minutes, seconds)
+
+
+def time_to_seconds(time):
+    return sum(int(x) * 60 ** i for i, x in enumerate(reversed(str(time).split(":"))))
+
+class DurationLimitError(Exception):
+    pass
+
+class FFmpegReturnCodeError(Exception):
+    pass
+
 def download(url: str) -> str:
     info = ydl.extract_info(url, False)
-    duration = round(info["duration"] / 60)
+    duration = round(info.get("duration", 0) / 60)
 
     if duration > DURATION_LIMIT:
         raise DurationLimitError(
@@ -68,6 +65,7 @@ def download(url: str) -> str:
 
     ydl.download([url])
     return path.join("downloads", f"{info['id']}.{info['ext']}")
+
 
 async def convert(file_path: str) -> str:
     out = path.join("raw_files", path.splitext(path.basename(file_path))[0] + ".raw")
@@ -80,7 +78,7 @@ async def convert(file_path: str) -> str:
         proc = await asyncio.create_subprocess_shell(
             f"ffmpeg -y -i {file_path} -f s16le -ac 1 -ar 48000 -acodec pcm_s16le {out}",
             asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         _, stderr = await proc.communicate()
 
@@ -92,33 +90,13 @@ async def convert(file_path: str) -> str:
 
     return out
 
-async def process_queue(chat_id):
-    if chat_id in queue and len(queue[chat_id]) > 0:
-        raw_file = queue[chat_id].pop(0)
-        is_playing[chat_id] = True
-        try:
-            stream_media = MediaStream(
-                media_path=raw_file,
-                video_flags=MediaStream.Flags.IGNORE,
-                audio_parameters=AudioQuality.STUDIO,
-            )
-            await call_py.play(chat_id, stream_media)
-            await userbot.send_message(chat_id, "**▶️ Playing from queue.**")
-        except Exception as e:
-            await userbot.send_message(chat_id, f"Error: {e}")
-            is_playing[chat_id] = False
-            await call_py.leave_call(chat_id)
-    else:
-        is_playing[chat_id] = False
-        await call_py.leave_call(chat_id)
-        await userbot.send_message(chat_id, "**🔇 Queue is empty. Leaving voice chat.**")
 
 # Play Song
 async def play_song(chat_id, user_id, query):
     try:
         if not validators.url(query):
             results = YoutubeSearch(query, max_results=1).to_dict()
-            if not results or not results[0].get('url_suffix'):
+            if not results or not results[0].get("url_suffix"):
                 raise Exception("No valid results found on YouTube.")
             query = f"https://youtube.com{results[0]['url_suffix']}"
 
@@ -150,27 +128,45 @@ async def play_song(chat_id, user_id, query):
                 audio_parameters=AudioQuality.STUDIO,
             )
             await call_py.play(chat_id, stream_media)
+            await userbot.send_message(chat_id, "**Bot successfully joined voice chat and started playing.**")
         else:
             queue.setdefault(chat_id, []).append(raw_file)
             await userbot.send_message(chat_id, "**Added to queue. Use /skip to play next.**")
     except DurationLimitError as de:
         await userbot.send_message(chat_id, str(de))
-    except (ConnectionNotFound, TelegramServerError) as e:  
+    except (ConnectionNotFound, TelegramServerError) as e:
         await userbot.send_message(chat_id, f"Error: {e}")
     except Exception as e:
         await userbot.send_message(chat_id, f"Error: {e}")
 
-# Commands
+# Get Administrators and Ensure Bot is Admin
+async def get_administrators(chat):
+    return [
+        admin.user.id
+        for admin in await userbot.get_chat_members(chat.id, filter="administrators")
+    ]
+
+
 @userbot.on_message(filters.command("play"))
 async def play(client, message):
     chat_id = message.chat.id
     user_id = message.from_user.id
     query = " ".join(message.command[1:])
+
+    administrators = await get_administrators(message.chat)
+    bot = await userbot.get_me()
+    if bot.id not in administrators:
+        await message.reply_text(
+            "**Promote me as an admin with all permissions to play music in voice chat.**"
+        )
+        return
+
     if chat_id in active_calls:
         await play_song(chat_id, user_id, query)
     else:
         active_calls[chat_id] = user_id
         await play_song(chat_id, user_id, query)
+
 
 @userbot.on_message(filters.command("skip"))
 async def skip(client, message):
@@ -183,11 +179,13 @@ async def skip(client, message):
         await call_py.leave_call(chat_id)
         await message.reply_text("No queue found. Leaving voice chat.")
 
+
 @userbot.on_message(filters.command("end"))
 async def end(client, message):
     chat_id = message.chat.id
     await call_py.leave_call(chat_id)
     await message.reply_text("Music ended!")
+
 
 @userbot.on_callback_query(filters.regex("close"))
 async def close_button(client, callback_query):
