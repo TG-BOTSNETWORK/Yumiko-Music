@@ -1,135 +1,124 @@
 import os
-import time
 import yt_dlp
+from pytgcalls import PyTgCalls, filters as pytgfl
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-from ntgcalls import InputMode
-from pytgcalls import PyTgCalls, idle
-from pytgcalls.types.raw import AudioParameters, AudioStream, Stream
-from veez import veez as app, call_py
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pytgcalls.types import MediaStream, AudioQuality
+from pyrogram.errors import FloodWait
+from pyrogram.types import Message
+from veez import veez as app, call_py as call
+# Initialize the Pyrogram Client and PyTgCalls
+# A dictionary to hold active media chat info
+ACTIVE_AUDIO_CHATS = []
+ACTIVE_VIDEO_CHATS = []
+ACTIVE_MEDIA_CHATS = []
+QUEUE = {}
 
-# Function to download audio from YouTube
-def download_audio(url: str):
+# Function to add chat to active media chats (Audio/Video)
+async def add_active_media_chat(chat_id, stream_type):
+    if stream_type == "Audio":
+        if chat_id in ACTIVE_VIDEO_CHATS:
+            ACTIVE_VIDEO_CHATS.remove(chat_id)
+        if chat_id not in ACTIVE_AUDIO_CHATS:
+            ACTIVE_AUDIO_CHATS.append(chat_id)
+    elif stream_type == "Video":
+        if chat_id in ACTIVE_AUDIO_CHATS:
+            ACTIVE_AUDIO_CHATS.remove(chat_id)
+        if chat_id not in ACTIVE_VIDEO_CHATS:
+            ACTIVE_VIDEO_CHATS.append(chat_id)
+    if chat_id not in ACTIVE_MEDIA_CHATS:
+        ACTIVE_MEDIA_CHATS.append(chat_id)
+
+# Function to remove chat from active media chats
+async def remove_active_media_chat(chat_id):
+    if chat_id in ACTIVE_AUDIO_CHATS:
+        ACTIVE_AUDIO_CHATS.remove(chat_id)
+    if chat_id in ACTIVE_VIDEO_CHATS:
+        ACTIVE_VIDEO_CHATS.remove(chat_id)
+    if chat_id in ACTIVE_MEDIA_CHATS:
+        ACTIVE_MEDIA_CHATS.remove(chat_id)
+
+# Function to add media to the queue
+async def add_to_queue(chat_id, user, title, duration, stream_file, stream_type, thumbnail):
+    put = {
+        "chat_id": chat_id,
+        "user": user,
+        "title": title,
+        "duration": duration,
+        "stream_file": stream_file,
+        "stream_type": stream_type,
+        "thumbnail": thumbnail,
+    }
+    check = QUEUE.get(chat_id)
+    if check:
+        QUEUE[chat_id].append(put)
+    else:
+        QUEUE[chat_id] = [put]
+    return len(QUEUE[chat_id]) - 1
+
+# Function to clear the queue
+async def clear_queue(chat_id):
+    check = QUEUE.get(chat_id)
+    if check:
+        QUEUE.pop(chat_id)
+
+# Function to download the song from YouTube and return file path
+def download_song(url):
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': 'downloads/%(id)s.%(ext)s',
-        'quiet': True,
         'postprocessors': [{
-            'key': 'FFmpegAudioConvertor',
+            'key': 'FFmpegAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
+        'outtmpl': 'downloads/%(id)s.%(ext)s',
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=True)
-        audio_file = ydl.prepare_filename(info_dict)
-        return audio_file
+        filename = ydl.prepare_filename(info_dict)
+    return filename
 
-# Function to play the next song in the queue
-async def play_next_song(chat_id):
-    if queue:
-        song = queue.pop(0)
-        audio_file = song['file']
-        title = song['title']
-        duration = song['duration']
-        channel = song['channel']
-        thumbnail = song['thumbnail']
-
-        # Check if bot has the right permissions
-        bot_member = await app.get_chat_member(chat_id, "me")
-        if not bot_member.privileges or not bot_member.privileges.can_manage_video_chats:
-            await app.send_message(
-                chat_id,
-                "**Promote me as an admin with voice chat permissions to play music!**"
-            )
-            return
-
-        # Start playing the audio file
-        call_py.play(
-            chat_id,
-            Stream(
-                AudioStream(
-                    InputMode.File,
-                    audio_file,
-                    AudioParameters(
-                        bitrate=48000,
-                    ),
-                ),
-            ),
-        )
-
-        # Send song details with thumbnail and inline button
-        await app.send_message(
-            chat_id,
-            f"🎶 **Now Playing:** {title}\n"
-            f"⏱️ **Duration:** {duration}\n"
-            f"📺 **Channel:** {channel}\n"
-            f"🔗 [Watch Here]({song['url']})",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("❌ Close", callback_data="close_video")]
-            ]),
-            thumb=thumbnail,
-        )
-
-# Command to start playing the song
-@app.on_message(filters.command('play'))
+# Command to handle the play functionality
+@app.on_message(filters.command("play"))
 async def play_command(client: Client, message: Message):
-    url_or_song = message.text.split(" ", 1)[1]  # Get the song name or URL
+    query = message.text.split(" ", 1)
+    
+    if len(query) < 2:
+        await message.reply("Please provide a song name or YouTube URL!")
+        return
+
+    search_query = query[1]
+    user = message.from_user
     chat_id = message.chat.id
 
-    # Check if the URL is a valid YouTube link
-    if 'youtube.com' in url_or_song or 'youtu.be' in url_or_song:
-        try:
-            audio_file = download_audio(url_or_song)
-            title = "Song Title"  # Get title from yt-dlp
-            duration = "3:30"  # Get duration from yt-dlp
-            channel = "Channel Name"  # Get channel name from yt-dlp
-            thumbnail = "thumbnail.jpg"  # Get thumbnail from yt-dlp
-            song_info = {
-                'file': audio_file,
-                'title': title,
-                'duration': duration,
-                'channel': channel,
-                'url': url_or_song,
-                'thumbnail': thumbnail
-            }
-            queue.append(song_info)
-
-            # Check if the bot is already in a call
-            if call_py.is_call_active(chat_id):
-                await message.reply_text("The bot is already in a call. Adding your song to the queue.")
-            else:
-                await play_next_song(chat_id)
-
-        except Exception as e:
-            await message.reply_text(f"Error downloading song: {str(e)}")
+    # Check if the message contains a YouTube URL or song name
+    if "youtube.com" in search_query or "youtu.be" in search_query:
+        url = search_query
     else:
-        await message.reply_text("Please provide a valid YouTube URL.")
+        url = f"https://www.youtube.com/results?search_query={search_query}"
 
-# Command to skip current song
-@app.on_message(filters.command('skip'))
-async def skip_command(client: Client, message: Message):
-    chat_id = message.chat.id
-
-    if not call_py.is_call_active(chat_id):
-        await message.reply_text("No active call to skip.")
+    # Download the song
+    try:
+        downloaded_file = download_song(url)
+    except Exception as e:
+        await message.reply(f"Failed to download the song: {str(e)}")
         return
 
-    # Skip the current song
-    await message.reply_text("Skipping current song...")
+    # Get media details
+    title = "Downloaded Song"  # You can get more detailed info from yt-dlp output
+    duration = "Unknown"
+    stream_file = downloaded_file
+    stream_type = "Audio"  # Assuming audio for now
+    thumbnail = None  # You can extract the thumbnail using yt-dlp if needed
 
-    # Continue to the next song in the queue
-    await play_next_song(chat_id)
+    # Add the media to the queue
+    await add_to_queue(chat_id, user, title, duration, stream_file, stream_type, thumbnail)
 
-# Command to stop the current song and end the call
-@app.on_message(filters.command('end'))
-async def end_command(client: Client, message: Message):
-    chat_id = message.chat.id
+    # Join the call and play the song
+    try:
+        await call.play(chat_id, stream_file=MediaStream(stream_file=stream_file), audio_quality=AudioQuality.STUDIO)
+        await add_active_media_chat(chat_id, "Audio")
+    except Exception as e:
+        await message.reply(f"Failed to join the group call: {str(e)}")
 
-    if not call_py.is_call_active(chat_id):
-        await message.reply_text("No active call to end.")
-        return
-
-    # End the call
-    call_py.stop(chat_id)
-    await message.reply_text("The voice chat has ended.")
+    await message.reply(f"Now playing: {title}")
