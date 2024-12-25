@@ -46,21 +46,24 @@ ydl_opts = {
 
 ydl = YoutubeDL(ydl_opts)
 
+# Transcode Function
 def transcode(filename):
     ffmpeg.input(filename).output(
         "input.raw", format="s16le", acodec="pcm_s16le", ac=2, ar="48k"
     ).overwrite_output().run()
     os.remove(filename)
-
+    
+# Convert seconds to mm:ss
 def convert_seconds(seconds):
     seconds %= 3600
     minutes = seconds // 60
     seconds %= 60
     return "%02d:%02d" % (minutes, seconds)
 
-
+# Convert hh:mm:ss to seconds
 def time_to_seconds(time):
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(str(time).split(":"))))
+    
 
 class DurationLimitError(Exception):
     pass
