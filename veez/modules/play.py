@@ -20,13 +20,11 @@ from pyrogram.errors import BadRequest
 
 async def get_administrators(chat: Chat) -> List[User]:
     try:
-        # Get the list of administrators
-        admin_members = chat.get_members(filter="administrators")
+        admin_members = await chat.get_members(filter="administrators")
         admin_ids = []
         async for admin in admin_members:
-            if admin.can_manage_video_chats:
+            if isinstance(admin.privileges, ChatPrivileges) and admin.privileges.can_manage_video_chats:
                 admin_ids.append(admin.user.id)
-
         return admin_ids
     except Exception as e:
         print(f"An error occurred while getting administrators: {e}")
