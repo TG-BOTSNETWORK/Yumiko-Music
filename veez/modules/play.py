@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from ntgcalls import InputMode
 from pytgcalls import PyTgCalls, idle
 from pytgcalls.types.raw import AudioParameters, AudioStream, Stream
-from veez import userbot as app, call_py
+from veez import veez as app, call_py
 
 # Function to download audio from YouTube
 def download_audio(url: str):
