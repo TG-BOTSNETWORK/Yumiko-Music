@@ -160,17 +160,13 @@ async def play(client, message):
     query = " ".join(message.command[1:])
 
     try:
-        bot_member: ChatPrivileges = await userbot.get_chat_member(chat_id, "me")
-        if not bot_member.can_manage_video_chats:
+        bot_member = await userbot.get_chat_member(chat_id, "me")
+        if not bot_member.privileges or not bot_member.privileges.can_manage_video_chats:
             await message.reply_text(
                 "**Promote me as an admin with voice chat permissions to play music!**"
             )
             return
-        if not bot_member.can_manage_video_chats:
-            await message.reply_text(
-                "**I need voice chat management permissions to play music in voice chat. Please grant this permission.**"
-            )
-            return
+
         if chat_id in active_calls:
             await play_song(chat_id, user_id, query)
         else:
@@ -180,7 +176,6 @@ async def play(client, message):
         await message.reply_text(f"An error occurred: {e}")
     except Exception as e:
         await message.reply_text(f"An unexpected error occurred: {e}")
-        
 
 @userbot.on_message(filters.command("skip"))
 async def skip(client, message):
