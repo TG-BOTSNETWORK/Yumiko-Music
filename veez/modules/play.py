@@ -15,7 +15,7 @@ from pytgcalls.methods.calls import LeaveCall
 from ntgcalls import ConnectionNotFound, TelegramServerError
 from pyrogram.errors import UserAlreadyParticipant
 from typing import List, Dict, Union
-from pyrogram.types import Chat, User, ChatMember
+from pyrogram.types import Chat, User, ChatPrivileges
 from pyrogram.errors import BadRequest
 
 async def get_administrators(chat: Chat) -> List[User]:
@@ -24,7 +24,7 @@ async def get_administrators(chat: Chat) -> List[User]:
         admin_members = chat.get_members(filter="administrators")
         admin_ids = []
         async for admin in admin_members:
-            if admin.can_manage_voice_chats:
+            if admin.can_manage_video_chats:
                 admin_ids.append(admin.user.id)
 
         return admin_ids
@@ -162,13 +162,13 @@ async def play(client, message):
     query = " ".join(message.command[1:])
 
     try:
-        bot_member: ChatMember = await userbot.get_chat_member(chat_id, "me")
-        if not bot_member.can_manage_voice_chats:
+        bot_member: ChatPrivileges = await userbot.get_chat_member(chat_id, "me")
+        if not bot_member.can_manage_video_chats:
             await message.reply_text(
                 "**Promote me as an admin with voice chat permissions to play music!**"
             )
             return
-        if not bot_member.can_manage_voice_chats:
+        if not bot_member.can_manage_video_chats:
             await message.reply_text(
                 "**I need voice chat management permissions to play music in voice chat. Please grant this permission.**"
             )
