@@ -17,24 +17,12 @@ from pyrogram.errors import UserAlreadyParticipant
 from typing import List, Dict, Union
 from pyrogram.types import Chat, User, ChatPrivileges
 from pyrogram.errors import BadRequest
+import random
+from io import BytesIO
+from PIL import Image
 
-async def get_administrators(chat: Chat) -> List[User]:
-    try:
-        admin_members = await chat.get_members(filter="administrators")
-        admin_ids = []
-        async for admin in admin_members:
-            if isinstance(admin.privileges, ChatPrivileges) and admin.privileges.can_manage_video_chats:
-                admin_ids.append(admin.user.id)
-        return admin_ids
-    except Exception as e:
-        print(f"An error occurred while getting administrators: {e}")
-        return []
-      
-queue: Dict[int, Queue] = {}
-active_calls = {}
-is_playing = {}
-
-DURATION_LIMIT = 60
+DURATION_LIMIT = 60  
+THUMBNAIL_PATH = "downloads/thumbnail.jpg"  
 
 ydl_opts = {
     "format": "bestaudio/best",
@@ -46,30 +34,9 @@ ydl_opts = {
 
 ydl = YoutubeDL(ydl_opts)
 
-# Transcode Function
-def transcode(filename):
-    ffmpeg.input(filename).output(
-        "input.raw", format="s16le", acodec="pcm_s16le", ac=2, ar="48k"
-    ).overwrite_output().run()
-    os.remove(filename)
-    
-# Convert seconds to mm:ss
-def convert_seconds(seconds):
-    seconds %= 3600
-    minutes = seconds // 60
-    seconds %= 60
-    return "%02d:%02d" % (minutes, seconds)
-
-# Convert hh:mm:ss to seconds
-def time_to_seconds(time):
-    return sum(int(x) * 60 ** i for i, x in enumerate(reversed(str(time).split(":"))))
-    
-
-class DurationLimitError(Exception):
-    pass
-
-class FFmpegReturnCodeError(Exception):
-    pass
+queue: Dict[int, Queue] = {}
+active_calls = {}
+is_playing = {}
 
 def download(url: str) -> str:
     info = ydl.extract_info(url, False)
@@ -84,17 +51,27 @@ def download(url: str) -> str:
     ydl.download([url])
     return path.join("downloads", f"{info['id']}.{info['ext']}")
 
+def generate_thumbnail(video_file: str) -> BytesIO:
+    try:
+        thumb_path = THUMBNAIL_PATH
+        ffmpeg.input(video_file, ss=1).output(thumb_path, vframes=1).run()
+        with open(thumb_path, "rb") as thumb_file:
+            return BytesIO(thumb_file.read())
+    except Exception as e:
+        print(f"Error generating thumbnail: {e}")
+        return None
 
-async def convert(file_path: str) -> str:
-    out = path.join("raw_files", path.splitext(path.basename(file_path))[0] + ".raw")
+# Transcode Function
+async def transcode(filename):
+    output_path = path.join("raw_files", path.splitext(path.basename(filename))[0] + ".raw")
     os.makedirs("raw_files", exist_ok=True)
 
-    if path.isfile(out):
-        return out
+    if path.isfile(output_path):
+        return output_path
 
     try:
         proc = await asyncio.create_subprocess_shell(
-            f"ffmpeg -y -i {file_path} -f s16le -ac 1 -ar 48000 -acodec pcm_s16le {out}",
+            f"ffmpeg -y -i {filename} -f s16le -ac 1 -ar 48000 -acodec pcm_s16le {output_path}",
             asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -102,12 +79,10 @@ async def convert(file_path: str) -> str:
 
         if proc.returncode != 0:
             raise FFmpegReturnCodeError(f"FFmpeg error: {stderr.decode('utf-8')}")
-
     except Exception as e:
         raise FFmpegReturnCodeError(f"Error during FFmpeg conversion: {e}")
 
-    return out
-
+    return output_path
 
 async def play_song(chat_id, user_id, query):
     try:
@@ -122,20 +97,22 @@ async def play_song(chat_id, user_id, query):
         views = info.get("view_count", "Unknown Views")
         duration = round(info.get("duration", 0) / 60)
         channel = info.get("uploader", "Unknown Channel")
+        video_file = download(query)
+        thumbnail = generate_thumbnail(video_file)
+        if thumbnail:
+            await userbot.send_photo(
+                chat_id,
+                photo=thumbnail,
+                caption=f"**🎵 Title:** `{title}`\n"
+                        f"**👀 Views:** `{views}`\n"
+                        f"**⏳ Duration:** `{duration}` minutes\n"
+                        f"**📢 Channel:** `{channel}`",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("❌ Close", callback_data="close")]]
+                ),
+            )
 
-        await userbot.send_message(
-            chat_id,
-            f"**🎵 Title:** `{title}`\n"
-            f"**👀 Views:** `{views}`\n"
-            f"**⏳ Duration:** `{duration}` minutes\n"
-            f"**📢 Channel:** `{channel}`",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("❌ Close", callback_data="close")]]
-            ),
-        )
-
-        file_path = download(query)
-        raw_file = await convert(file_path)
+        raw_file = await transcode(video_file)
         if chat_id not in active_calls:
             active_calls[chat_id] = user_id
             is_playing[chat_id] = True
@@ -191,15 +168,13 @@ async def skip(client, message):
         await call_py.leave_call(chat_id)
         await message.reply_text("No queue found. Leaving voice chat.")
 
-
 @userbot.on_message(filters.command("end"))
 async def end(client, message):
     chat_id = message.chat.id
     await call_py.leave_call(chat_id)
     await message.reply_text("Music ended!")
 
-
-@userbot.on_callback_query(filters.regex("close"))
-async def close_button(client, callback_query):
-    await callback_query.message.delete()
-    await callback_query.answer("Closed.", show_alert=True)
+async def process_queue(chat_id):
+    if chat_id in queue and len(queue[chat_id]) > 0:
+        next_song = queue[chat_id].pop(0)
+        await play_song(chat_id, active_calls[chat_id], next_song)
