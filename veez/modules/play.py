@@ -1,158 +1,144 @@
 import os
 import asyncio
-import yt_dlp
-from os import path
-from pytgcalls import PyTgCalls, filters as pytgfl
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pytgcalls.types import MediaStream, AudioQuality
-from pyrogram.errors import FloodWait
 from pyrogram.types import Message
-from veez import veez as app, call_py as call
+from pytgcalls import PyTgCalls, idle
+from pytgcalls.types import MediaStream, AudioQuality, VideoQuality
+import yt_dlp
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import requests
+from typing import Optional, Union
+from veez import veez as app, veez_user as call_py
+from config import YOUTUBE_COOKIES, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 
-# Initialize the Pyrogram Client and PyTgCalls
-# A dictionary to hold active media chat info
-ACTIVE_AUDIO_CHATS = []
-ACTIVE_VIDEO_CHATS = []
-ACTIVE_MEDIA_CHATS = []
-QUEUE = {}
+spotify = spotipy.Spotify(
+    auth_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET
+    )
+)
 
-# Function to add chat to active media chats (Audio/Video)
-async def add_active_media_chat(chat_id, stream_type):
-    if stream_type == "Audio":
-        if chat_id in ACTIVE_VIDEO_CHATS:
-            ACTIVE_VIDEO_CHATS.remove(chat_id)
-        if chat_id not in ACTIVE_AUDIO_CHATS:
-            ACTIVE_AUDIO_CHATS.append(chat_id)
-    elif stream_type == "Video":
-        if chat_id in ACTIVE_AUDIO_CHATS:
-            ACTIVE_AUDIO_CHATS.remove(chat_id)
-        if chat_id not in ACTIVE_VIDEO_CHATS:
-            ACTIVE_VIDEO_CHATS.append(chat_id)
-    if chat_id not in ACTIVE_MEDIA_CHATS:
-        ACTIVE_MEDIA_CHATS.append(chat_id)
+class MediaPlayer:
+    def __init__(self):
+        self.active_streams = {}
+        self.download_dir = "downloads"
+        os.makedirs(self.download_dir, exist_ok=True)
 
-# Function to remove chat from active media chats
-async def remove_active_media_chat(chat_id):
-    if chat_id in ACTIVE_AUDIO_CHATS:
-        ACTIVE_AUDIO_CHATS.remove(chat_id)
-    if chat_id in ACTIVE_VIDEO_CHATS:
-        ACTIVE_VIDEO_CHATS.remove(chat_id)
-    if chat_id in ACTIVE_MEDIA_CHATS:
-        ACTIVE_MEDIA_CHATS.remove(chat_id)
+    async def download_file(self, url: str, filename: str) -> Optional[str]:
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+            filepath = os.path.join(self.download_dir, filename)
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return filepath
+        except Exception as e:
+            print(f"Download error: {e}")
+            return None
 
-# Function to add media to the queue
-async def add_to_queue(chat_id, user, title, duration, stream_file, stream_type, thumbnail):
-    put = {
-        "chat_id": chat_id,
-        "user": user,
-        "title": title,
-        "duration": duration,
-        "stream_file": stream_file,
-        "stream_type": stream_type,
-        "thumbnail": thumbnail,
-    }
-    check = QUEUE.get(chat_id)
-    if check:
-        QUEUE[chat_id].append(put)
-    else:
-        QUEUE[chat_id] = [put]
-    return len(QUEUE[chat_id]) - 1
-
-# Function to clear the queue
-async def clear_queue(chat_id):
-    check = QUEUE.get(chat_id)
-    if check:
-        QUEUE.pop(chat_id)
-
-# Function to download the song from YouTube and return file path
-def download_song(url):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'outtmpl': 'downloads/%(id)s.%(ext)s',
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info_dict)
-    return filename
-
-# Function to transcode audio to raw format
-async def transcode(filename):
-    output_path = path.join("raw_files", path.splitext(path.basename(filename))[0] + ".raw")
-    os.makedirs("raw_files", exist_ok=True)
-
-    if path.isfile(output_path):
-        return output_path
-
-    try:
-        proc = await asyncio.create_subprocess_shell(
-            f"ffmpeg -y -i {filename} -f s16le -ac 1 -ar 48000 -acodec pcm_s16le {output_path}",
-            asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+    async def get_youtube_stream(self, url: str) -> MediaStream:
+        ydl_opts = {
+            'format': 'bestvideo+bestaudio/best',
+            'cookiefile': YOUTUBE_COOKIES,
+            'noplaylist': True,
+            'quiet': True,
+        }
+        return MediaStream(
+            url,
+            audio_parameters=AudioQuality.HIGH,
+            video_parameters=VideoQuality.HD_720p,
+            ytdlp_parameters=ydl_opts
         )
-        _, stderr = await proc.communicate()
 
-        if proc.returncode != 0:
-            raise Exception(f"FFmpeg error: {stderr.decode('utf-8')}")
-    except Exception as e:
-        raise Exception(f"Error during FFmpeg conversion: {e}")
+    async def search_youtube(self, query: str) -> Optional[str]:
+        try:
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+                result = ydl.extract_info(f"ytsearch:{query}", download=False)
+                return result['entries'][0]['webpage_url'] if result['entries'] else None
+        except Exception as e:
+            print(f"YouTube search error: {e}")
+            return None
 
-    return output_path
+    async def get_spotify_url(self, url: str) -> Optional[str]:
+        try:
+            track = spotify.track(url)
+            track_name = track['name']
+            artist = track['artists'][0]['name']
+            search_query = f"{track_name} {artist} official audio"
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+                result = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+                return result['entries'][0]['webpage_url'] if result['entries'] else None
+        except Exception as e:
+            print(f"Spotify conversion error: {e}")
+            return None
 
-# Command to handle the play functionality
-@app.on_message(filters.command("play"))
+    async def process_telegram_media(self, message: Message) -> Optional[str]:
+        if message.audio or message.video or message.document:
+            file = await app.download_media(message)
+            return file
+        return None
+
+    async def play_media(self, chat_id: int, source: str, message: Message) -> bool:
+        try:
+            media_stream = None
+            audio_path = None
+
+            if "youtube.com" in source or "youtu.be" in source:
+                media_stream = await self.get_youtube_stream(source)
+            
+            elif "spotify.com" in source:
+                youtube_url = await self.get_spotify_url(source)
+                if youtube_url:
+                    media_stream = await self.get_youtube_stream(youtube_url)
+            
+            elif "resso.com" in source:
+                media_stream = await self.get_youtube_stream(source)
+            
+            elif source.startswith("http"):
+                audio_path = await self.download_file(source, f"{chat_id}_media.mp3")
+                if audio_path:
+                    media_stream = MediaStream(
+                        audio_path=audio_path,
+                        audio_parameters=AudioQuality.HIGH
+                    )
+            
+            elif message.reply_to_message:
+                audio_path = await self.process_telegram_media(message.reply_to_message)
+                if audio_path:
+                    media_stream = MediaStream(
+                        audio_path=audio_path,
+                        audio_parameters=AudioQuality.HIGH
+                    )
+            
+            else:
+                youtube_url = await self.search_youtube(source)
+                if youtube_url:
+                    media_stream = await self.get_youtube_stream(youtube_url)
+
+            if media_stream:
+                await call_py.play(chat_id, media_stream)
+                self.active_streams[chat_id] = media_stream
+                await message.reply("Playing media now!")
+                return True
+            
+            await message.reply("Failed to process media source.")
+            return False
+
+        except Exception as e:
+            await message.reply(f"Error playing media: {str(e)}")
+            return False
+
+player = MediaPlayer()
+
+@app.on_message(filters.command("play") & filters.group)
 async def play_command(client: Client, message: Message):
-    query = message.text.split(" ", 1)
-    
-    if len(query) < 2:
-        await message.reply("Please provide a song name or YouTube URL!")
+    if len(message.command) < 2 and not message.reply_to_message:
+        await message.reply("Please provide a URL, search query, or reply to a media message!")
         return
 
-    search_query = query[1]
-    user = message.from_user
     chat_id = message.chat.id
-
-    # Check if the message contains a YouTube URL or song name
-    if "youtube.com" in search_query or "youtu.be" in search_query:
-        url = search_query
-    else:
-        url = f"https://www.youtube.com/results?search_query={search_query}"
-
-    # Download the song
-    try:
-        downloaded_file = download_song(url)
-    except Exception as e:
-        await message.reply(f"Failed to download the song: {str(e)}")
-        return
-
-    # Transcode the file to raw format
-    try:
-        raw_file = await transcode(downloaded_file)
-    except Exception as e:
-        await message.reply(f"Failed to transcode the song: {str(e)}")
-        return
-
-    # Get media details
-    title = "Downloaded Song"  # You can get more detailed info from yt-dlp output
-    duration = "Unknown"
-    stream_file = raw_file
-    stream_type = "Audio"  # Assuming audio for now
-    thumbnail = None  # You can extract the thumbnail using yt-dlp if needed
-
-    # Add the media to the queue
-    await add_to_queue(chat_id, user, title, duration, stream_file, stream_type, thumbnail)
-
-    # Join the call and play the song
-    try:
-        await call.play(chat_id, stream_file=MediaStream(stream_file=stream_file), audio_quality=AudioQuality.STUDIO)
-        await add_active_media_chat(chat_id, "Audio")
-    except Exception as e:
-        await message.reply(f"Failed to join the group call: {str(e)}")
-
-    await message.reply(f"Now playing: {title}")
-
+    source = message.text.split(maxsplit=1)[1] if len(message.command) > 1 else ""
+    
+    await player.play_media(chat_id, source, message)
