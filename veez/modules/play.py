@@ -9,7 +9,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import requests
 from typing import Optional, Union
-from veez import veez as app, veez_user as call_py
+from veez import veez as app, call_py
 from config import YOUTUBE_COOKIES, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 
 spotify = spotipy.Spotify(
