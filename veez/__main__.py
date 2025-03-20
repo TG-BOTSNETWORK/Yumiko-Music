@@ -13,9 +13,6 @@ except ImportError:
     LOGGER.error("config.py not found or missing required variables!")
     raise SystemExit("Please ensure `config.py` exists and contains API_ID, API_HASH, BOT_TOKEN, and SESSION.")
 
-from veez.modules import load_modules
-load_modules()
-
 async def check_call_py_status():
     if call_py._is_running:
         LOGGER.info("call_py has started successfully.")
