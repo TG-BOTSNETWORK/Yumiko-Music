@@ -5,16 +5,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-API_ID = os.getenv("API_ID", "27805819")
-API_HASH = os.getenv("API_HASH", "7372a27cd4dc20b792bb117b038db7ef")
+API_ID = os.getenv("API_ID", "22363963")
+API_HASH = os.getenv("API_HASH", "5c096f7e8fd4c38c035d53dc5a85d768")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7481943486:AAEWhDdfqQEE9SA3vBQb4MZ_MsM8p3hgSVc")
-SESSION = os.getenv("SESSION", "BQGoSHsAt-kneFsPDgFBXUjxim7d8PT6nMfQZUATeOuSXRwwL1o43z63EytXmVINC_xnEIcMP1wz8G5PNQvJQGl8iSj8UC9KRrTnNaQyD7fb7G381ft3_2hBVAgioO4l8ollcltDtCJRFBsFhUN5dOPwfVA8WNCQ2OooVZPa9n_segouxGxLB7p51PdwQ0ewu94P2COz0OZQ5Ieu3bev0nKQ9iPuAxjaO4ryTTYkVmJQF4tgSJ3amoVY9ad3ldteq1tAUgdK5HJqVhDO8xX7ngxEHhjjVKgDIrQyt8LuX4hKaCve2izbIsid2pcuMePPpeB92wHte2ZzTzv1yeiH_AwX_7G-bQAAAAG9QfXgAA")
+SESSION = os.getenv("SESSION", "BADgILUAFMB8QX6xEZTN4yTUMeVwA1pbkKf4OJSkaG43Q_AQtA0CRYWBhij9FwPGo2_2uRhDz_mmVPk-6rZ5MqoYxN68oYnf3Mycf_Q0vrY8AgLT7lnWw5mtNYPZAKvDTjmglqvr_NR9dNsUsPrpiWQs5smRuet0S14VQcMHIUXBz8XTaojOcKX47weGtzO6qsd3gFQLB-yntETztS18EdUwe8lk5vAnPk2XmmSOHGQYsKuUPcPwFO6RSqdGYl83t9-rnlWOuUvhcq6L8HmHnL0HYDlQQNQjPZzRgs-O08THdhT9Lwif3WMyhoKGsoCFDllw-jhXhVJq_m2EpTid9tPmIZ7XCgAAAAGdvzzOAA")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "TgGroupMusicBot")
 YOUTUBE_COOKIES = os.getenv("YOUTUBE_COOKIES", "cookies.txt")
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "abfefd79368745e980d5ebb3dafe668d")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "c03fa79f2fdb4ca0933ea4fad7697160")
 
-# Ensure all required variables are set
 required_vars = [
     "API_ID", 
     "API_HASH", 
