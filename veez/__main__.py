@@ -26,15 +26,25 @@ async def check_call_py_status():
 
 async def main():
     LOGGER.info("Starting Veez Bot...")
-    await veez.start()
-    await veez_user.start()
-    
+    try:
+        await veez.start()
+        LOGGER.info("Bot client started.")
+    except Exception as e:
+        LOGGER.error(f"Failed to start bot client: {e}")
+        raise SystemExit("Bot client failed to start.")
+
+    try:
+        await veez_user.start()
+        LOGGER.info("User client started.")
+    except Exception as e:
+        LOGGER.error(f"Failed to start user client: {e}")
+        raise SystemExit("User client failed to start. Please check SESSION string.")
+
     try:
         await call_py.start()
         await check_call_py_status()
     except Exception as e:
         LOGGER.error(f"Failed to start call_py: {e}")
-        print(f"Error: {e}")
         raise SystemExit("call_py failed to start.")
 
     LOGGER.info("Veez Bot has started successfully!")
@@ -45,14 +55,14 @@ async def main():
     LOGGER.info("Veez Bot has stopped.")
 
 if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
     try:
-        loop = asyncio.get_event_loop()
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         LOGGER.error("Bot stopped manually.")
-    except SystemExit:
-        LOGGER.error("System exit encountered.")
+        SystemExit(0)
     except Exception as e:
         LOGGER.error(f"An unexpected error occurred: {e}")
-        import sys
-        sys.exit(1)
+        if "SESSION_REVOKED" in str(e):
+            LOGGER.error("Session was revoked. Please generate a new SESSION string.")
+        SystemExit(1)
