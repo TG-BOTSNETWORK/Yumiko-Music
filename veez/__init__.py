@@ -26,4 +26,3 @@ veez_user = Client(
           in_memory=True, 
 ) 
 call_py = PyTgCalls(veez_user)
-veez_config = GroupCallConfig(auto_start=False)
